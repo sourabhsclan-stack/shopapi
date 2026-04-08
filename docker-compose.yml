@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+
+  # ── Service 1: Your ShopAPI app ──────────────────────
+  app:
+    build:
+      context: .          # Build from current folder
+      dockerfile: Dockerfile
+    container_name: shopapi-app
+    ports:
+      - "3000:3000"       # laptop:3000 → container:3000
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - APP_NAME=ShopAPI
+      - DATABASE_URL=postgres://shopuser:shoppass@postgres:5432/shopdb
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy   # Wait for postgres to be ready
+      redis:
+        condition: service_healthy   # Wait for redis to be ready
+    networks:
+      - shopapi-network
+    restart: unless-stopped          # Auto-restart if app crashes
+
+  # ── Service 2: PostgreSQL Database ───────────────────
+  postgres:
+    image: postgres:15-alpine        # Official postgres image, alpine = small
+    container_name: shopapi-postgres
+    environment:
+      POSTGRES_DB: shopdb            # Database name
+      POSTGRES_USER: shopuser        # Database username
+      POSTGRES_PASSWORD: shoppass    # Database password
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # Persist data even if container stops
+    ports:
+      - "5432:5432"                  # Expose postgres port (useful for debugging)
+    networks:
+      - shopapi-network
+    healthcheck:                     # How Docker knows postgres is ready
+      test: ["CMD-SHELL", "pg_isready -U shopuser -d shopdb"]
+      interval: 10s                  # Check every 10 seconds
+      timeout: 5s                    # Wait max 5 seconds for response
+      retries: 5                     # Try 5 times before giving up
+    restart: unless-stopped
+
+  # ── Service 3: Redis Cache ────────────────────────────
+  redis:
+    image: redis:7-alpine            # Official redis image
+    container_name: shopapi-redis
+    ports:
+      - "6379:6379"                  # Expose redis port
+    networks:
+      - shopapi-network
+    healthcheck:                     # How Docker knows redis is ready
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+# ── Networks ──────────────────────────────────────────
+# All 3 containers talk to each other through this network
+# They use service names as hostnames (e.g. "postgres", "redis")
+networks:
+  shopapi-network:
+    driver: bridge
+
+# ── Volumes ───────────────────────────────────────────
+# Named volume — postgres data survives container restarts
+volumes:
+  pgdata:
