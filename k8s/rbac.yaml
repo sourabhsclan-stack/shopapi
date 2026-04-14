@@ -1,0 +1,57 @@
+# ── Role: what actions are allowed ──────────────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: shopapi-developer
+  namespace: production
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]     # Can VIEW deployments
+  - apiGroups: [""]
+    resources: ["pods", "pods/logs"]
+    verbs: ["get", "list", "watch"]     # Can VIEW pods and logs
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]     # Can VIEW services
+
+---
+# ── ClusterRole: read-only cluster access ───────────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: shopapi-readonly
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+
+---
+# ── ServiceAccount: identity for our app ────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: shopapi-sa
+  namespace: production
+
+---
+# ── RoleBinding: connect Role to ServiceAccount ─────
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: shopapi-developer-binding
+  namespace: production
+subjects:
+  - kind: ServiceAccount
+    name: shopapi-sa
+    namespace: production
+roleRef:
+  kind: Role
+  name: shopapi-developer
+  apiGroup: rbac.authorization.k8s.io

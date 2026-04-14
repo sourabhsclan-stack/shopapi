@@ -83,6 +83,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+          # Security scan — scan image for vulnerabilities
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:latest
+          format: 'table'
+          exit-code: '0'          # 0 = warn only, 1 = fail on critical
+          severity: 'CRITICAL,HIGH'
+          output: 'trivy-results.txt'
+
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-security-scan
+          path: trivy-results.txt
+
   deploy:
     name: Deploy
     runs-on: ubuntu-latest

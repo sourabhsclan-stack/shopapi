@@ -1,0 +1,140 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shopapi-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring      # Must match Helm release name
+spec:
+  groups:
+
+    # ── Group 1: API Health Alerts ──────────────────────
+    - name: shopapi.api
+      interval: 30s          # Evaluate every 30 seconds
+      rules:
+
+        # Alert 1 — High Error Rate
+        - alert: HighErrorRate
+          expr: |
+            rate(http_requests_total{status_code=~"5.."}[5m]) /
+            rate(http_requests_total[5m]) > 0.05
+          for: 2m             # Must be true for 2 minutes before firing
+          labels:
+            severity: critical
+            app: shopapi
+          annotations:
+            summary: "High error rate detected on ShopAPI"
+            description: "Error rate is {{ humanizePercentage $value }} over the last 5 minutes"
+
+        # Alert 2 — High Latency
+        - alert: HighLatency
+          expr: |
+            histogram_quantile(0.95,
+              rate(http_request_duration_seconds_bucket[5m])
+            ) > 1
+          for: 5m
+          labels:
+            severity: warning
+            app: shopapi
+          annotations:
+            summary: "High latency on ShopAPI"
+            description: "p95 latency is {{ humanizeDuration $value }}"
+
+        # Alert 3 — App is completely down
+        - alert: ShopAPIDown
+          expr: |
+            up{job="shopapi"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            app: shopapi
+          annotations:
+            summary: "ShopAPI is DOWN"
+            description: "ShopAPI has been unreachable for more than 1 minute"
+
+    # ── Group 2: Kubernetes Pod Alerts ─────────────────
+    - name: shopapi.pods
+      interval: 30s
+      rules:
+
+        # Alert 4 — Pod Crash Looping
+        - alert: PodCrashLooping
+          expr: |
+            rate(kube_pod_container_status_restarts_total{
+              namespace="production"
+            }[15m]) * 60 * 15 > 0
+          for: 5m
+          labels:
+            severity: critical
+            app: shopapi
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash looping"
+            description: "Pod has restarted {{ $value }} times in 15 minutes"
+
+        # Alert 5 — Pod not ready
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{
+              namespace="production",
+              condition="true"
+            } == 0
+          for: 5m
+          labels:
+            severity: warning
+            app: shopapi
+          annotations:
+            summary: "Pod {{ $labels.pod }} is not ready"
+            description: "Pod has been not ready for more than 5 minutes"
+
+        # Alert 6 — Less than 3 replicas running
+        - alert: LowReplicaCount
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="production",
+              deployment="shopapi"
+            } < 3
+          for: 2m
+          labels:
+            severity: warning
+            app: shopapi
+          annotations:
+            summary: "ShopAPI has less than 3 replicas"
+            description: "Only {{ $value }} replicas available, expected 3"
+
+    # ── Group 3: Resource Alerts ────────────────────────
+    - name: shopapi.resources
+      interval: 60s
+      rules:
+
+        # Alert 7 — High CPU
+        - alert: HighCPUUsage
+          expr: |
+            rate(container_cpu_usage_seconds_total{
+              namespace="production",
+              container="shopapi"
+            }[5m]) > 0.4
+          for: 5m
+          labels:
+            severity: warning
+            app: shopapi
+          annotations:
+            summary: "High CPU usage on ShopAPI"
+            description: "CPU usage is {{ humanizePercentage $value }}"
+
+        # Alert 8 — High Memory
+        - alert: HighMemoryUsage
+          expr: |
+            container_memory_usage_bytes{
+              namespace="production",
+              container="shopapi"
+            } / container_spec_memory_limit_bytes{
+              namespace="production",
+              container="shopapi"
+            } > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            app: shopapi
+          annotations:
+            summary: "High memory usage on ShopAPI"
+            description: "Memory usage is {{ humanizePercentage $value }} of limit"

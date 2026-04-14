@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shopapi
+  namespace: argocd
+  labels:
+    app: shopapi
+spec:
+  # ── Project ─────────────────────────────────────────
+  project: default
+
+  # ── Source: WHERE to get the k8s manifests ──────────
+  source:
+    repoURL: https://github.com/sourabhsclan-stack/shopapi
+    targetRevision: main        # Watch the main branch
+    path: k8s                   # Look in the k8s/ folder
+
+  # ── Destination: WHERE to deploy ────────────────────
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+
+  # ── Sync Policy: HOW to deploy ──────────────────────
+  syncPolicy:
+    automated:
+      prune: true               # Delete resources removed from GitHub
+      selfHeal: true            # Revert manual kubectl changes automatically
+    syncOptions:
+      - CreateNamespace=true    # Create namespace if it doesn't exist

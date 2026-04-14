@@ -1,0 +1,71 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: shopapi-alertmanager-config
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+
+  # ── Routing Rules ─────────────────────────────────────
+  route:
+    receiver: slack-notifications    # Default receiver
+    groupBy: ['alertname', 'app']    # Group similar alerts together
+    groupWait: 30s                   # Wait 30s before sending first alert
+    groupInterval: 5m                # Wait 5m before sending updated alerts
+    repeatInterval: 12h              # Resend if still firing after 12h
+
+    # Different routes for different severities
+    routes:
+      - receiver: slack-critical     # Critical alerts go here
+        matchers:
+          - name: severity
+            value: critical
+        groupWait: 10s               # Send critical alerts faster
+
+      - receiver: slack-warning      # Warning alerts go here
+        matchers:
+          - name: severity
+            value: warning
+        groupWait: 60s               # Wait longer for warnings
+
+  # ── Receivers ─────────────────────────────────────────
+  receivers:
+
+    # Default receiver
+    - name: slack-notifications
+      slackConfigs:
+        - apiURL:
+            name: slack-webhook-secret
+            key: https://hooks.slack.com/services/T0ATF1X9R32/B0ASHETKZ6H/tAKGGEUGsuiyRRQEwpZ7y8J
+          channel: '#all-shopapi-devops'
+          sendResolved: true         # Also notify when alert resolves
+          title: '{{ .CommonAnnotations.summary }}'
+          text: '{{ .CommonAnnotations.description }}'
+
+    # Critical alerts receiver
+    - name: slack-critical
+      slackConfigs:
+        - apiURL:
+            name: slack-webhook-secret
+            key: https://hooks.slack.com/services/T0ATF1X9R32/B0ASHETKZ6H/tAKGGEUGsuiyRRQEwpZ7y8J
+          channel: '#all-shopapi-devops'
+          sendResolved: true
+          color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+          title: 'CRITICAL: {{ .CommonAnnotations.summary }}'
+          text: |
+            *Severity:* Critical
+            *Description:* {{ .CommonAnnotations.description }}
+            *Time:* {{ .CommonLabels.alertname }}
+
+    # Warning alerts receiver
+    - name: slack-warning
+      slackConfigs:
+        - apiURL:
+            name: slack-webhook-secret
+            key: https://hooks.slack.com/services/T0ATF1X9R32/B0ASHETKZ6H/tAKGGEUGsuiyRRQEwpZ7y8J
+          channel: '#all-shopapi-devops'
+          sendResolved: true
+          color: 'warning'
+          title: 'WARNING: {{ .CommonAnnotations.summary }}'
+          text: '{{ .CommonAnnotations.description }}'

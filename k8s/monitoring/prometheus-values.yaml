@@ -1,0 +1,49 @@
+# ── Prometheus Settings ──────────────────────────────
+prometheus:
+  prometheusSpec:
+    retention: 15d              # Keep 15 days of metrics data
+    scrapeInterval: 15s         # Collect metrics every 15 seconds
+
+    # Tell Prometheus to scrape pods with these annotations
+    # Remember in deployment.yaml we added prometheus.io/scrape: "true"
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+
+    additionalScrapeConfigs:
+      - job_name: 'shopapi'
+        static_configs:
+          - targets: ['shopapi-service.production.svc.cluster.local:80']
+        metrics_path: '/metrics'
+        scrape_interval: 15s
+
+# ── Grafana Settings ─────────────────────────────────
+grafana:
+  enabled: true
+  adminPassword: "shopapi123"   # Grafana login password
+  service:
+    type: NodePort              # Expose Grafana outside cluster
+
+  # Pre-built dashboards to import automatically
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          folder: 'ShopAPI'
+          type: file
+          options:
+            path: /var/lib/grafana/dashboards/default
+
+# ── Alertmanager Settings ────────────────────────────
+alertmanager:
+  enabled: true                 # We'll configure this in Phase 5
+
+# ── Node Exporter ────────────────────────────────────
+# Collects host-level metrics (CPU, memory, disk of the node)
+nodeExporter:
+  enabled: true
+
+# ── Kube State Metrics ───────────────────────────────
+# Collects Kubernetes object metrics (pod status, deployment status)
+kubeStateMetrics:
+  enabled: true
