@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "soura1598/shopapi"
-    }
-
     stages {
 
         stage('Checkout') {
@@ -30,30 +26,24 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo '========== Building Docker image =========='
-                script {
-                    dockerImage = docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
-                }
+                echo '========== Build Docker Image =========='
+                echo 'Docker build runs in GitHub Actions pipeline'
+                echo "Image would be: soura1598/shopapi:${env.BUILD_NUMBER}"
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
-                echo '========== Pushing to Docker Hub =========='
-                script {
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-credentials') {
-                        dockerImage.push("${env.BUILD_NUMBER}")
-                        dockerImage.push('latest')
-                    }
-                }
+                echo '========== Push to Docker Hub =========='
+                echo 'Push runs in GitHub Actions pipeline'
             }
         }
 
         stage('Deploy') {
             steps {
                 echo '========== Deployment Summary =========='
-                echo "Image: ${IMAGE_NAME}:${env.BUILD_NUMBER}"
-                echo "Status: Successfully deployed!"
+                echo "Build: #${env.BUILD_NUMBER}"
+                echo 'Pipeline completed successfully!'
             }
         }
     }
